@@ -55,16 +55,25 @@ type ResponseHandlerInterface func(body io.ReadCloser) error
 func JSONResponseHandler(objmap *interface{}) (ResponseHandlerInterface){
 	return func(body io.ReadCloser) (error){
 		responseBody, _ := ioutil.ReadAll(body)
-		err := json.Unmarshal(responseBody, &objmap)
-		CheckForError(*objmap)
-		return err
+		if err := json.Unmarshal(responseBody, &objmap); err == nil{
+			err:=CheckForError(*objmap)
+			return err
+		}else{
+			return err
+		}
+		return nil
 	}
 }
 func CheckForError(objmap interface{}) (error){
 	omap:=objmap.(map[string]interface{})
+	str := ""
 	if omap["error"] != nil {
-		str := omap["error_description"].(string)
-		log.Printf("an error was returned: %v\n", str)
+		if omap["error_description"] != nil {
+			str = omap["error_description"].(string)
+		}else{
+			str = omap["error"].(string)
+		}
+		// log.Printf("an error was returned: %v\n", str)
 		return &UsergridError{Message:str}
 	}
 	return nil	
@@ -100,10 +109,16 @@ func (client *Client) Login(username string, password string) error{
 func (client *Client) OrgLogin(client_id string, client_secret string) error {
 	urlStr := fmt.Sprintf("%s/%s",client.Uri,"management/token")
 	data := map[string]string{"grant_type":"client_credentials","client_id":client_id,"client_secret":client_secret}
-	rawmap, err := client.Request("POST", urlStr, nil, data)
-	if err == nil {
-		client.access_token, err = RawToString(rawmap["access_token"])
-	}
+	var objmap interface{}
+	err := client.RequestAsync("POST", urlStr, nil, data, func(body io.ReadCloser) (error){
+		responseBody, _ := ioutil.ReadAll(body)
+		err := json.Unmarshal(responseBody, &objmap)
+		omap:=objmap.(map[string]interface{})
+		client.access_token=omap["access_token"].(string)
+		err=CheckForError(objmap)
+		return err
+
+	})
 	return err
 }
 func (client *Client) AddAuthorizationHeaders(req *http.Request){
@@ -182,17 +197,6 @@ func (client *Client) Request(method string, endpoint string, params map[string]
 	// }
 	// err = client.CheckForError(responseBody)
 	return objmap, nil
-}
-func (client *Client) ResponseHandler(responseBody []byte) (map[string]*json.RawMessage, error){
-	var objmap map[string]*json.RawMessage
-	err := json.Unmarshal(responseBody, &objmap)
-	if err != nil {
-		return nil, err
-	}else if err:=CheckForError(objmap); err != nil {
-		return nil, err
-	}
-
-	return objmap, err
 }
 func (client *Client) Get(endpoint string, params map[string]string) (map[string]interface{}, error) {
 	urlStr := fmt.Sprintf("%s/%s/%s/%s",client.Uri,client.Organization, client.Application, endpoint);
