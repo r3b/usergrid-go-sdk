@@ -1,25 +1,16 @@
 package usergrid
 
 import (
-    // "flag"
     "log"
-    // "errors"
     "net/http"
     "net/url"
 	"strings"
-    "io"
     "io/ioutil"
-    //"text/template"
     "fmt"
     "time"
-    // "strings"
     "encoding/json"
-    // "code.google.com/p/go-uuid/uuid"
-    // "runtime"                                                                                                                              
     "strconv"
     "os"
-    // "os/signal"
-    // "syscall"
     "reflect"
 )
 
@@ -34,27 +25,18 @@ var (
     REQUESTS int
     RESPONSES int
     RESPONSE_SIZE int
+    MAX_CONCURRENT_REQUESTS int = 4
 )
 
 func init(){
-	// flag.StringVar(&API, "apiurl", "http://api.usergrid.com", "Usergrid base API URI")
-	// flag.StringVar(&ORGNAME, "orgname", "yourorgname", "The name of your org")
-	// flag.StringVar(&APPNAME, "appname", "sandbox", "The name of your app")
-	// flag.StringVar(&CLIENT_ID, "id", "", "The Client ID for your app")
-	// flag.StringVar(&CLIENT_SECRET, "secret", "", "The Client Secret for your app")
-	// flag.StringVar(&ENDPOINT, "endpoint", "", "The endpoint to fetch")
-	// flag.IntVar(&PAGE_SIZE, "pagesize", 10, "The number of items in history to be displayed")
-	// flag.Parse()
 	log.SetOutput(os.Stderr)
 }
 type Client struct {
 	Organization,Application,Uri,access_token string
-	//,grant_type,client_id,client_secret
 }
-type ResponseHandlerInterface func(body io.ReadCloser) error
+type ResponseHandlerInterface func(responseBody []byte) error
 func JSONResponseHandler(objmap *interface{}) (ResponseHandlerInterface){
-	return func(body io.ReadCloser) (error){
-		responseBody, _ := ioutil.ReadAll(body)
+	return func(responseBody []byte) (error){
 		if err := json.Unmarshal(responseBody, &objmap); err == nil{
 			err:=CheckForError(*objmap)
 			return err
@@ -73,7 +55,6 @@ func CheckForError(objmap interface{}) (error){
 		}else{
 			str = omap["error"].(string)
 		}
-		// log.Printf("an error was returned: %v\n", str)
 		return &UsergridError{Message:str}
 	}
 	return nil	
@@ -110,8 +91,7 @@ func (client *Client) OrgLogin(client_id string, client_secret string) error {
 	urlStr := fmt.Sprintf("%s/%s",client.Uri,"management/token")
 	data := map[string]string{"grant_type":"client_credentials","client_id":client_id,"client_secret":client_secret}
 	var objmap interface{}
-	err := client.RequestAsync("POST", urlStr, nil, data, func(body io.ReadCloser) (error){
-		responseBody, _ := ioutil.ReadAll(body)
+	err := client.RequestAsync("POST", urlStr, nil, data, func(responseBody []byte) (error){
 		err := json.Unmarshal(responseBody, &objmap)
 		omap:=objmap.(map[string]interface{})
 		client.access_token=omap["access_token"].(string)
@@ -152,50 +132,55 @@ func (client *Client) MakeRequest(method string, endpoint string, params map[str
 }
 
 
-func (client *Client) RequestAsync(method string, endpoint string, params map[string]string, data interface{}, handler ResponseHandlerInterface) (error) {
-	_client := &http.Client{}
-	req, err :=client.MakeRequest(method, endpoint, params, data)
-	if err != nil {
-	    return err
-	}
-    REQUESTS++
-    resp, err :=_client.Do(req)
-	defer resp.Body.Close()
-	if err != nil {
-	    return err
-	}
-	RESPONSES++
-	return handler(resp.Body)
+func (client *Client) RequestNamedChannel(method string, endpoint string, params map[string]string, data interface{}, responseChan chan []byte){
+	defer func() {
+        if r := recover(); r != nil {
+            // fmt.Println("Recovered in f", r)
+            responseChan <- []byte(fmt.Sprintf("{\"error\":\"%s\", \"error_description\":\"%s: %v\"}", "network_error", "The request failed at the network level", r))
+        }
+    }()
+	go func(){
+		_client := &http.Client{}
+		req, err :=client.MakeRequest(method, endpoint, params, data)
+		if err != nil {
+		    log.Panic(err)
+		}
+	    REQUESTS++
+	    resp, err :=_client.Do(req)
+	    if err != nil {
+		    log.Panic(err)
+		}
+		defer resp.Body.Close()
+		RESPONSES++
+		responseBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Panic(err)
+		}
+		responseChan <- responseBody	
+	}()
 }
+func (client *Client) RequestChannel(method string, endpoint string, params map[string]string, data interface{}) (chan []byte) {
+    responseChan := make(chan []byte)
+    client.RequestNamedChannel(method, endpoint, params, data, responseChan)
+	return responseChan
+}
+func (client *Client) RequestAsync(method string, endpoint string, params map[string]string, data interface{}, handler ResponseHandlerInterface) (error) {
+	responseChan := client.RequestChannel(method, endpoint, params, data)
+	responseBody := <-responseChan
+	return handler(responseBody)
+}
+
 func (client *Client) Request(method string, endpoint string, params map[string]string, data interface{}) (map[string]*json.RawMessage, error) {
-	_client := &http.Client{}
-	req, err :=client.MakeRequest(method, endpoint, params, data)
-	if err != nil {
-	    // log.Panicf("ERROR %s\n", err)
-	    return nil, err
-	}
-    REQUESTS++
-    resp, err :=_client.Do(req)
-	defer resp.Body.Close()
-	if err != nil {
-	    // log.Panicf("ERROR %s\n", err)
-	    return nil, err
-	}
-	RESPONSES++
-	// log.Printf("%d\t%s\t%s\n", resp.StatusCode, method, endpoint)
-	// responseBody, err := ioutil.ReadAll(resp.Body)
+	responseChan := client.RequestChannel(method, endpoint, params, data)
+	responseBody := <-responseChan
 	var objmap map[string]*json.RawMessage
-	decoder:=json.NewDecoder(resp.Body)
-	err=decoder.Decode(&objmap)
+	decoder:=json.NewDecoder(strings.NewReader(string(responseBody)))
+	err:=decoder.Decode(&objmap)
 	if err != nil {
 		return nil, err
 	}else if err:=CheckForError(objmap); err != nil {
 		return nil, err
 	}
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// err = client.CheckForError(responseBody)
 	return objmap, nil
 }
 func (client *Client) Get(endpoint string, params map[string]string) (map[string]interface{}, error) {
@@ -208,7 +193,11 @@ func (client *Client) Delete(endpoint string, params map[string]string) (map[str
 	urlStr := fmt.Sprintf("%s/%s/%s/%s",client.Uri,client.Organization, client.Application, endpoint);
 	var objmap interface{}
 	err := client.RequestAsync("DELETE",urlStr, params, nil, JSONResponseHandler(&objmap))
-	return objmap.(map[string]interface{}), err
+	if(objmap == nil){
+		return nil, err
+	}else{
+		return objmap.(map[string]interface{}), err
+	}
 }
 func (client *Client) Post(endpoint string, params map[string]string, data interface{}) (map[string]interface{}, error) {
 	urlStr := fmt.Sprintf("%s/%s/%s/%s",client.Uri,client.Organization, client.Application, endpoint);

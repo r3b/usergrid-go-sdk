@@ -47,16 +47,16 @@ func FetchAll(client usergrid.Client, endpoint string, entities chan<- interface
 		control <- true
 		// return
 	}else{
+		if len(resp["entities"].([]interface{}))>0 {
+			for _,v := range resp["entities"].([]interface{}) {
+				entities <- v
+			}
+		}
 		if(resp["cursor"]!=nil){
 			cursor,_ := resp["cursor"].(string)
 			go FetchAll(client, endpoint, entities, control, cursor)
 		}else{
 			control <- true
-		}
-		if len(resp["entities"].([]interface{}))>0 {
-			for _,v := range resp["entities"].([]interface{}) {
-				entities <- v
-			}
 		}
 	}
 
