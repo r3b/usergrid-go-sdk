@@ -1,12 +1,9 @@
 package usergrid
 
 import (
-	// "github.com/user/newmath"
 	"testing"
 	"encoding/json"
 	"strconv"
-    "fmt"
-    // "time"
 )
 func TestPost(t *testing.T){
 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
@@ -115,45 +112,32 @@ func TestDelete3(t *testing.T){
 		t.Logf("RESPONSE: %s", str)
 	}
 }
-func TestMassDelete(t *testing.T){
-	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
-	params := map[string]string{"limit":strconv.Itoa(500)}
-	resp, err:= client.Get("benchmark", params)
-	if(err!=nil){
-		t.Logf("Test failed: %s\n", err)
-		t.Fail()
-	}
-	// if(t.Failed()){
-	// 	str,_:=json.MarshalIndent(resp,"","  ")
-	// 	t.Logf("RESPONSE: %s", str)
-	// }
-	if (resp["entities"]!=nil && len(resp["entities"].([]interface{}))>0) {
-		for k,v := range resp["entities"].([]interface{}) {
-			if(v == nil){
-				t.Logf("could not delete %d: %v\n", k, v)
-				t.Fail()
-			}else{
-				t.Logf(fmt.Sprintf("yay %v",v))
-				entity := v.(map[string]interface{})
-				t.Logf(fmt.Sprintf("entity %v",entity["uuid"]))
-				_, err:= client.Delete("benchmark/"+entity["uuid"].(string), nil)
-				if(err!=nil){
-					t.Logf("could not delete %s: %s\n", entity["uuid"].(string), err)
-					t.Fail()
-				}
-			}
-		}
-	}
-	// resp:= client.RequestChannel("GET", "http://api.usergrid.com/yourorgname/sandbox/benchmarks",nil, nil)
-	
- //    select {
- //    case v := <-resp:
- //    	str,_:=json.MarshalIndent(v,"","  ")
- //    	fmt.Printf("%s\n", str)
- //    case <-time.After(time.Second * 20):
- //    	panic("Timeout!")
- //    }
-}
+// func TestMassDelete(t *testing.T){
+// 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
+// 	params := map[string]string{"limit":strconv.Itoa(500)}
+// 	resp, err:= client.Get("benchmark", params)
+// 	if(err!=nil){
+// 		t.Logf("Test failed: %s\n", err)
+// 		t.Fail()
+// 	}
+// 	if (resp["entities"]!=nil && len(resp["entities"].([]interface{}))>0) {
+// 		for k,v := range resp["entities"].([]interface{}) {
+// 			if(v == nil){
+// 				t.Logf("could not delete %d: %v\n", k, v)
+// 				t.Fail()
+// 			}else{
+// 				t.Logf(fmt.Sprintf("yay %v",v))
+// 				entity := v.(map[string]interface{})
+// 				t.Logf(fmt.Sprintf("entity %v",entity["uuid"]))
+// 				_, err:= client.Delete("benchmark/"+entity["uuid"].(string), nil)
+// 				if(err!=nil){
+// 					t.Logf("could not delete %s: %s\n", entity["uuid"].(string), err)
+// 					t.Fail()
+// 				}
+// 			}
+// 		}
+// 	}
+// }
 
 
 func BenchmarkPost(b *testing.B) {
