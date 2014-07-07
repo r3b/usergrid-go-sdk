@@ -1,9 +1,10 @@
 package usergrid
 
 import (
-	"testing"
 	"encoding/json"
 	"strconv"
+	"testing"
+	"time"
 )
 func TestPost(t *testing.T){
 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
@@ -112,33 +113,6 @@ func TestDelete3(t *testing.T){
 		t.Logf("RESPONSE: %s", str)
 	}
 }
-// func TestMassDelete(t *testing.T){
-// 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
-// 	params := map[string]string{"limit":strconv.Itoa(500)}
-// 	resp, err:= client.Get("benchmark", params)
-// 	if(err!=nil){
-// 		t.Logf("Test failed: %s\n", err)
-// 		t.Fail()
-// 	}
-// 	if (resp["entities"]!=nil && len(resp["entities"].([]interface{}))>0) {
-// 		for k,v := range resp["entities"].([]interface{}) {
-// 			if(v == nil){
-// 				t.Logf("could not delete %d: %v\n", k, v)
-// 				t.Fail()
-// 			}else{
-// 				t.Logf(fmt.Sprintf("yay %v",v))
-// 				entity := v.(map[string]interface{})
-// 				t.Logf(fmt.Sprintf("entity %v",entity["uuid"]))
-// 				_, err:= client.Delete("benchmark/"+entity["uuid"].(string), nil)
-// 				if(err!=nil){
-// 					t.Logf("could not delete %s: %s\n", entity["uuid"].(string), err)
-// 					t.Fail()
-// 				}
-// 			}
-// 		}
-// 	}
-// }
-
 
 func BenchmarkPost(b *testing.B) {
  	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
@@ -155,6 +129,64 @@ func BenchmarkPost(b *testing.B) {
 			str,_:=json.MarshalIndent(resp,"","  ")
 			b.Logf("RESPONSE: %s", str)
 		}
+   }
+}
+func BenchmarkRawRequests(b *testing.B) {
+ 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
+	params := map[string]string{"limit":strconv.Itoa(10)}
+	resp, err:= client.Get("benchmark", params)
+	if(err!=nil){
+		b.Logf("Test failed: %s\n", err)
+		b.Fail()
+	}
+	if (resp["entities"]==nil || len(resp["entities"].([]interface{}))==0) {
+		b.Logf("Test failed: no entities\n")
+		b.Fail()
+	}
+	entities:=resp["entities"].([]interface{})
+	requests:=0
+	responses:=0
+	errors:=0
+	var objmap interface{}
+	var entity map[string]interface{}
+	responseChan := make(chan []byte)
+	go func(){
+		for {
+	        select {
+	        case v := <-responseChan:
+	        	if err := json.Unmarshal(v, &objmap); err == nil{
+					if err:=CheckForError(&objmap); err != nil {
+						errors++
+					}
+				}else{
+					errors++
+				}
+	        	
+	        	responses++
+	        	requests--
+	        case <-time.After(time.Second * 10):
+	        	return
+	        }
+	    }
+	}()
+ 	b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+    	if(len(entities)==0){
+			b.Logf("Test failed: we ran out of entities\n")
+			b.Fail()
+			continue
+    	}
+    	entity = entities[i % len(entities)].(map[string]interface{})
+    	for ;requests>=MAX_CONCURRENT_REQUESTS;{
+        	// if we outpace GOMAXPROCS, we'll run out of threads
+    		time.Sleep(60 * time.Millisecond)
+    	}
+		client.Request("GET", "http://api.usergrid.com/yourorgname/sandbox/benchmark/"+entity["uuid"].(string), nil, nil, responseChan)
+		requests++
+   }
+   for ;requests>0;{
+		// wait for the last few responses
+		time.Sleep(60 * time.Millisecond)   	
    }
 }
 func BenchmarkGet(b *testing.B) {
