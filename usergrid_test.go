@@ -7,147 +7,159 @@ import (
 	"time"
 )
 func TestPost(t *testing.T){
+	var objmap interface{}
 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
 	data := map[string]string{"name":"go_dog", "status":"good dog"}
-	resp, err:= client.Post("dogs", nil, data)
+	err:= client.Post("dogs", nil, data, JSONResponseHandler(&objmap))
 	if(err!=nil){
 		t.Logf("TestPost failed: %s\n", err)
 		t.Fail()
 	}
 	if(t.Failed()){
-		str,_:=json.MarshalIndent(resp,"","  ")
+		str,_:=json.MarshalIndent(&objmap,"","  ")
 		t.Logf("RESPONSE: %s", str)
 	}
 }
 func TestPostDuplicate(t *testing.T){
+	var objmap interface{}
 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
 	data := map[string]string{"name":"go_dog", "status":"good dog"}
-	resp, err:= client.Post("dogs", nil, data)
+	err:= client.Post("dogs", nil, data, JSONResponseHandler(&objmap))
 	if(err==nil){
 		t.Logf("TestPost failed. Should have received a duplicate entity error.\n")
 		t.Fail()
 	}
 	if(t.Failed()){
-		str,_:=json.MarshalIndent(resp,"","  ")
+		str,_:=json.MarshalIndent(&objmap,"","  ")
 		t.Logf("RESPONSE: %s", str)
 	}
 }
 func TestGet(t *testing.T){
+	var objmap interface{}
 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
-	resp, err:= client.Get("dogs/go_dog", nil)
+	err:= client.Get("dogs/go_dog", nil, JSONResponseHandler(&objmap))
 	if(err!=nil){
 		t.Logf("TestGet failed: %s\n", err)
 		t.Fail()
 	}else{
-		if (resp["entities"]==nil) {
+		omap:=objmap.(map[string]interface{})
+		if (omap["entities"]==nil) {
 			t.Logf("No entities returned")
 			t.Fail()
-		}else if(len(resp["entities"].([]interface{}))!=1){
+		}else if(len(omap["entities"].([]interface{}))!=1){
 			t.Logf("Incorrect number of entities")
 			t.Fail()
 		}
 	}
 	if(t.Failed()){
-		str,_:=json.MarshalIndent(resp,"","  ")
+		str,_:=json.MarshalIndent(&objmap,"","  ")
 		t.Logf("RESPONSE: %s", str)
 	}
 }
 func TestGetBadEntity(t *testing.T){
+	var objmap interface{}
 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
-	resp, err:= client.Get("dogs/go_dogizzle", nil)
+	err:= client.Get("dogs/go_dogizzle", nil, JSONResponseHandler(&objmap))
 	if(err==nil){
 		t.Logf("TestGet failed. dog should not exist: %s\n", err)
 		t.Fail()
 	}
 	if(t.Failed()){
-		str,_:=json.MarshalIndent(resp,"","  ")
+		str,_:=json.MarshalIndent(&objmap,"","  ")
 		t.Logf("RESPONSE: %s", str)
 	}
 }
 func TestPut(t *testing.T){
+	var objmap interface{}
 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
 	data := map[string]string{"status":"flat out on the highway and drying in the sun"}
-	resp, err:= client.Put("dogs/go_dog", nil, data)
+	err:= client.Put("dogs/go_dog", nil, data, JSONResponseHandler(&objmap))
 	if(err!=nil){
 		t.Logf("TestPut failed: %s\n", err)
 		t.Fail()
 	}
 	if(t.Failed()){
-		str,_:=json.MarshalIndent(resp,"","  ")
+		str,_:=json.MarshalIndent(&objmap,"","  ")
 		t.Logf("RESPONSE: %s", str)
 	}
 }
 func TestDelete(t *testing.T){
+	var objmap interface{}
 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
-	resp, err:= client.Delete("dogs/go_dog", nil)
+	err:= client.Delete("dogs/go_dog", nil, JSONResponseHandler(&objmap))
 	if(err!=nil){
 		t.Logf("Test failed: %s\n", err)
 		t.Fail()
 	}
 	if(t.Failed()){
-		str,_:=json.MarshalIndent(resp,"","  ")
+		str,_:=json.MarshalIndent(&objmap,"","  ")
 		t.Logf("RESPONSE: %s", str)
 	}
 }
 func TestDelete2(t *testing.T){
+	var objmap interface{}
 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
-	resp, err:= client.Get("dogs/go_dog", nil)
+	err:= client.Get("dogs/go_dog", nil, JSONResponseHandler(&objmap))
 	if(err==nil){
 		t.Logf("Test failed. Dog should be deleted: %s\n", err)
 		t.Fail()
 	}
 	if(t.Failed()){
-		str,_:=json.MarshalIndent(resp,"","  ")
+		str,_:=json.MarshalIndent(&objmap,"","  ")
 		t.Logf("RESPONSE: %s", str)
 	}
 }
 func TestDelete3(t *testing.T){
+	var objmap interface{}
 	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
-	resp, err:= client.Delete("dogs/go_dog", nil)
+	err:= client.Delete("dogs/go_dog", nil, JSONResponseHandler(&objmap))
 	if(err==nil){
 		t.Logf("Test failed. Should return service_resource_not_found error\n")
 		t.Fail()
 	}
 	if(t.Failed()){
-		str,_:=json.MarshalIndent(resp,"","  ")
+		str,_:=json.MarshalIndent(&objmap,"","  ")
 		t.Logf("RESPONSE: %s", str)
 	}
 }
 
 func BenchmarkPost(b *testing.B) {
+	var objmap interface{}
  	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
 	data := map[string]string{"index":"0", "description":"golang benchmark"}
 	b.ResetTimer()
     for i := 0; i < b.N; i++ {
     	data["index"]=strconv.Itoa(i);
-		resp, err:= client.Post("benchmark", nil, data)
+		err:= client.Post("benchmark", nil, data, JSONResponseHandler(&objmap))
 		if(err!=nil){
 			b.Logf("BenchmarkPost failed: %s\n", err)
 			b.Fail()
 		}
 		if(b.Failed()){
-			str,_:=json.MarshalIndent(resp,"","  ")
+			str,_:=json.MarshalIndent(objmap,"","  ")
 			b.Logf("RESPONSE: %s", str)
 		}
    }
 }
 func BenchmarkRawRequests(b *testing.B) {
+	var objmap interface{}
  	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
 	params := map[string]string{"limit":strconv.Itoa(10)}
-	resp, err:= client.Get("benchmark", params)
+	err:= client.Get("benchmark", params, JSONResponseHandler(&objmap))
 	if(err!=nil){
 		b.Logf("Test failed: %s\n", err)
 		b.Fail()
 	}
-	if (resp["entities"]==nil || len(resp["entities"].([]interface{}))==0) {
+	omap:=objmap.(map[string]interface{})
+	if (omap["entities"]==nil || len(omap["entities"].([]interface{}))==0) {
 		b.Logf("Test failed: no entities\n")
 		b.Fail()
 	}
-	entities:=resp["entities"].([]interface{})
+	entities:=omap["entities"].([]interface{})
 	requests:=0
 	responses:=0
 	errors:=0
-	var objmap interface{}
+	// var objmap interface{}
 	var entity map[string]interface{}
 	responseChan := make(chan []byte)
 	go func(){
@@ -190,18 +202,20 @@ func BenchmarkRawRequests(b *testing.B) {
    }
 }
 func BenchmarkGet(b *testing.B) {
+	var objmap interface{}
  	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
 	params := map[string]string{"limit":strconv.Itoa(500)}
-	resp, err:= client.Get("benchmark", params)
+	err:= client.Get("benchmark", params, JSONResponseHandler(&objmap))
 	if(err!=nil){
 		b.Logf("Test failed: %s\n", err)
 		b.Fail()
 	}
-	if (resp["entities"]==nil || len(resp["entities"].([]interface{}))==0) {
+	omap:=objmap.(map[string]interface{})
+	if (omap["entities"]==nil || len(omap["entities"].([]interface{}))==0) {
 		b.Logf("Test failed: no entities to delete\n")
 		b.Fail()
 	}
-	entities:=resp["entities"].([]interface{})
+	entities:=omap["entities"].([]interface{})
 	var entity map[string]interface{}
  	b.ResetTimer()
     for i := 0; i < b.N; i++ {
@@ -211,30 +225,32 @@ func BenchmarkGet(b *testing.B) {
 			continue
     	}
     	entity, entities = entities[len(entities)-1].(map[string]interface{}), entities[:len(entities)-1]
-		_, err:= client.Get("benchmark/"+entity["uuid"].(string), nil)
+		err:= client.Get("benchmark/"+entity["uuid"].(string), nil, NOOPResponseHandler(&objmap))
 		if(err!=nil){
 			b.Logf("BenchmarkGet failed: %s\n", err)
 			b.Fail()
 		}
    }
 	if(b.Failed()){
-		str,_:=json.MarshalIndent(resp,"","  ")
+		str,_:=json.MarshalIndent(objmap,"","  ")
 		b.Logf("RESPONSE: %s", str)
 	}
 }
 func BenchmarkPut(b *testing.B) {
+	var objmap interface{}
  	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
 	params := map[string]string{"limit":strconv.Itoa(500)}
-	resp, err:= client.Get("benchmark", params)
+	err:= client.Get("benchmark", params, JSONResponseHandler(&objmap))
 	if(err!=nil){
 		b.Logf("Test failed: %s\n", err)
 		b.Fail()
 	}
-	if (resp["entities"]==nil || len(resp["entities"].([]interface{}))==0) {
+	omap:=objmap.(map[string]interface{})
+	if (omap["entities"]==nil || len(omap["entities"].([]interface{}))==0) {
 		b.Logf("Test failed: no entities to delete\n")
 		b.Fail()
 	}
-	entities:=resp["entities"].([]interface{})
+	entities:=omap["entities"].([]interface{})
 	var entity map[string]interface{}
  	b.ResetTimer()
     for i := 0; i < b.N; i++ {
@@ -244,31 +260,33 @@ func BenchmarkPut(b *testing.B) {
 			continue
     	}
     	entity, entities = entities[len(entities)-1].(map[string]interface{}), entities[:len(entities)-1]
-		_, err:= client.Put("benchmark/"+entity["uuid"].(string), nil, map[string]string{"updated":"true"})
+		err:= client.Put("benchmark/"+entity["uuid"].(string), nil, map[string]string{"updated":"true"}, NOOPResponseHandler(&objmap))
 		if(err!=nil){
 			b.Logf("BenchmarkPut failed: %s\n", err)
 			b.Fail()
 		}
    }
 	if(b.Failed()){
-		str,_:=json.MarshalIndent(resp,"","  ")
+		str,_:=json.MarshalIndent(objmap,"","  ")
 		b.Logf("RESPONSE: %s", str)
 	}
 }
 
 func BenchmarkDelete(b *testing.B) {
+	var objmap interface{}
  	client := Client {Organization:"yourorgname",Application:"sandbox",Uri:"https://api.usergrid.com"}
 	params := map[string]string{"limit":strconv.Itoa(500)}
-	resp, err:= client.Get("benchmark", params)
+	err:= client.Get("benchmark", params, JSONResponseHandler(&objmap))
 	if(err!=nil){
 		b.Logf("Test failed: %s\n", err)
 		b.Fail()
 	}
-	if (resp["entities"]==nil || len(resp["entities"].([]interface{}))==0) {
+	omap:=objmap.(map[string]interface{})
+	if (omap["entities"]==nil || len(omap["entities"].([]interface{}))==0) {
 		b.Logf("Test failed: no entities to delete\n")
 		b.Fail()
 	}
-	entities:=resp["entities"].([]interface{})
+	entities:=omap["entities"].([]interface{})
 	var entity map[string]interface{}
  	b.ResetTimer()
     for i := 0; i < b.N; i++ {
@@ -278,14 +296,14 @@ func BenchmarkDelete(b *testing.B) {
 			continue
     	}
     	entity, entities = entities[len(entities)-1].(map[string]interface{}), entities[:len(entities)-1]
-		_, err:= client.Delete("benchmark/"+entity["uuid"].(string), nil)
+		err:= client.Delete("benchmark/"+entity["uuid"].(string), nil, NOOPResponseHandler(&objmap))
 		if(err!=nil){
 			b.Logf("BenchmarkDelete failed: %s\n", err)
 			b.Fail()
 		}
    }
 	if(b.Failed()){
-		str,_:=json.MarshalIndent(resp,"","  ")
+		str,_:=json.MarshalIndent(objmap,"","  ")
 		b.Logf("RESPONSE: %s", str)
 	}
 }
