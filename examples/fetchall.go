@@ -37,23 +37,25 @@ func init(){
 }
 
 func FetchAll(client usergrid.Client, endpoint string, entities chan<- interface{}, control chan<- bool, cursor string) {
+	var objmap interface{}
 	params := map[string]string{"limit":strconv.Itoa(PAGE_SIZE)}
 	if cursor!="" {
 		params["cursor"]=cursor
 	}
-	resp,err:= client.Get(endpoint,params)
+	err:= client.Get(endpoint,params, usergrid.JSONResponseHandler(&objmap))
 	if err != nil {
 		log.Printf("ERROR: %s\n\n", err)
 		control <- true
 		// return
 	}else{
-		if len(resp["entities"].([]interface{}))>0 {
-			for _,v := range resp["entities"].([]interface{}) {
+		obmap:=objmap.(map[string]interface{})
+		if len(obmap["entities"].([]interface{}))>0 {
+			for _,v := range obmap["entities"].([]interface{}) {
 				entities <- v
 			}
 		}
-		if(resp["cursor"]!=nil){
-			cursor,_ := resp["cursor"].(string)
+		if(obmap["cursor"]!=nil){
+			cursor,_ := obmap["cursor"].(string)
 			go FetchAll(client, endpoint, entities, control, cursor)
 		}else{
 			control <- true
@@ -63,6 +65,7 @@ func FetchAll(client usergrid.Client, endpoint string, entities chan<- interface
 }
 func main(){
 	client := usergrid.Client {Organization:ORGNAME,Application:APPNAME,Uri:API}
+	var objmap interface{}
 	var results = make([]interface{},0)
 	messages := make(chan interface{})
 	done := make(chan bool, 1)
@@ -73,9 +76,6 @@ func main(){
 			return
 		}
 	}
-	resp,_:= client.Get("",nil)
-	str,_:=json.MarshalIndent(resp,"","  ")
-	log.Printf("RESPONSE: %s", str)
 	go func(){
 		for {
 	        select {
@@ -86,6 +86,9 @@ func main(){
 	        }
 	    }
 	}()
+	client.Get("",nil, usergrid.JSONResponseHandler(&objmap))
+	str,_:=json.MarshalIndent(objmap,"","  ")
+	log.Printf("RESPONSE: %s", str)
 	go FetchAll(client, ENDPOINT, messages, done, "")
 	<- done
 	entities, _ := json.MarshalIndent(results, "", "  ")
