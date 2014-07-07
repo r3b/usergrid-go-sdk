@@ -37,6 +37,11 @@ type Client struct {
 	_client *http.Client
 }
 type ResponseHandlerInterface func(responseBody []byte) error
+func NOOPResponseHandler(objmap *interface{}) (ResponseHandlerInterface){
+	return func(responseBody []byte) (error){
+		return nil
+	}
+}
 func JSONResponseHandler(objmap *interface{}) (ResponseHandlerInterface){
 	return func(responseBody []byte) (error){
 		if err := json.Unmarshal(responseBody, &objmap); err == nil{
@@ -176,31 +181,19 @@ func (client *Client) RequestWithHandler(method string, endpoint string, params 
 	return handler(responseBody)
 }
 
-func (client *Client) Get(endpoint string, params map[string]string) (map[string]interface{}, error) {
+func (client *Client) Get(endpoint string, params map[string]string, handler ResponseHandlerInterface) (error) {
 	urlStr := fmt.Sprintf("%s/%s/%s/%s",client.Uri,client.Organization, client.Application, endpoint);
-	var objmap interface{}
-	err := client.RequestWithHandler("GET",urlStr, params, nil, JSONResponseHandler(&objmap))
-	return objmap.(map[string]interface{}), err
+	return client.RequestWithHandler("GET",urlStr, params, nil, handler)
 }
-func (client *Client) Delete(endpoint string, params map[string]string) (map[string]interface{}, error) {
+func (client *Client) Delete(endpoint string, params map[string]string, handler ResponseHandlerInterface) (error) {
 	urlStr := fmt.Sprintf("%s/%s/%s/%s",client.Uri,client.Organization, client.Application, endpoint);
-	var objmap interface{}
-	err := client.RequestWithHandler("DELETE",urlStr, params, nil, JSONResponseHandler(&objmap))
-	if(objmap == nil){
-		return nil, err
-	}else{
-		return objmap.(map[string]interface{}), err
-	}
+	return client.RequestWithHandler("DELETE",urlStr, params, nil, handler)
 }
-func (client *Client) Post(endpoint string, params map[string]string, data interface{}) (map[string]interface{}, error) {
+func (client *Client) Post(endpoint string, params map[string]string, data interface{}, handler ResponseHandlerInterface) (error) {
 	urlStr := fmt.Sprintf("%s/%s/%s/%s",client.Uri,client.Organization, client.Application, endpoint);
-	var objmap interface{}
-	err := client.RequestWithHandler("POST",urlStr, params, data, JSONResponseHandler(&objmap))
-	return objmap.(map[string]interface{}), err
+	return client.RequestWithHandler("POST",urlStr, params, data, handler)
 }
-func (client *Client) Put(endpoint string, params map[string]string, data interface{}) (map[string]interface{}, error) {
+func (client *Client) Put(endpoint string, params map[string]string, data interface{}, handler ResponseHandlerInterface) (error) {
 	urlStr := fmt.Sprintf("%s/%s/%s/%s",client.Uri,client.Organization, client.Application, endpoint);
-	var objmap interface{}
-	err := client.RequestWithHandler("PUT",urlStr, params, data, JSONResponseHandler(&objmap))
-	return objmap.(map[string]interface{}), err
+	return client.RequestWithHandler("PUT",urlStr, params, data, handler)
 }
